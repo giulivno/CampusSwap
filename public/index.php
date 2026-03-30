@@ -1,9 +1,16 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+require_once '../src/auth.php';
 
-require_once '../src/db.php';
-
-$db = get_db();
-echo 'Connected successfully!';
+require_login();
 ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CampusSwap</title>
+</head>
+<body>
+    <h1>Welcome, <?= htmlspecialchars($_SESSION['user_name']) ?>!</h1>
+    <a href="logout.php">Log out</a>
+</body>
+</html>
