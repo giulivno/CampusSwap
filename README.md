@@ -95,12 +95,3 @@ CampusSwap/
 ├── .htaccess           # Apache URL routing
 └── README.md
 ```
-
----
-
-## Contributing
-
-1. Always pull before starting work: `git pull`
-2. Work on a feature branch if possible: `git checkout -b feature/your-feature-name`
-3. Commit with clear messages scoped to what you did: `git commit -m "Add listing detail page"`
-4. Push and open a pull request on GitHub for review before merging to main
