@@ -1,4 +1,3 @@
-
 <?php
 require_once '../src/auth.php';
 
@@ -30,31 +29,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register — CampusSwap</title>
+    <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
 </head>
 <body>
-    <h1>Create Account</h1>
+<div class="auth-wrapper">
+    <div class="auth-card">
 
-    <?php if ($error): ?>
-        <p style="color: red;"><?= htmlspecialchars($error) ?></p>
-    <?php endif; ?>
+        <div class="auth-logo">
+            <span class="blue">Campus</span><span class="orange">Swap</span>
+        </div>
+        <p class="auth-subtitle">Create your student account</p>
 
-    <?php if ($success): ?>
-        <p style="color: green;"><?= htmlspecialchars($success) ?> <a href="login.php">Log in</a></p>
-    <?php endif; ?>
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
 
-    <form method="POST">
-        <label>Name<br>
-            <input type="text" name="name" required>
-        </label><br><br>
-        <label>Email (.ufl.edu or .sfcollege.edu)<br>
-            <input type="email" name="email" required>
-        </label><br><br>
-        <label>Password<br>
-            <input type="password" name="password" required>
-        </label><br><br>
-        <button type="submit">Register</button>
-    </form>
+        <?php if ($success): ?>
+            <div class="alert alert-success">
+                <?= htmlspecialchars($success) ?> <a href="login.php">Log in now</a>
+            </div>
+        <?php endif; ?>
 
-    <p>Already have an account? <a href="login.php">Log in</a></p>
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label">Full name</label>
+                <input type="text" name="name" class="form-control" placeholder="Your name" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" placeholder="you@ufl.edu" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-1">Create account</button>
+        </form>
+
+        <p class="text-center text-muted mt-2" style="font-size:13px;">
+            Already have an account? <a href="login.php">Log in</a>
+        </p>
+
+    </div>
+</div>
 </body>
 </html>

@@ -28,25 +28,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — CampusSwap</title>
+    <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
 </head>
 <body>
-    <h1>CampusSwap</h1>
-    <h2>Student Marketplace for UF & Santa Fe</h2>
+<div class="auth-wrapper">
+    <div class="auth-card">
 
-    <?php if ($error): ?>
-        <p style="color: red;"><?= htmlspecialchars($error) ?></p>
-    <?php endif; ?>
+        <div class="auth-logo">
+            <span class="blue">Campus</span><span class="orange">Swap</span>
+        </div>
+        <p class="auth-subtitle">Student marketplace for UF & Santa Fe</p>
 
-    <form method="POST">
-        <label>Email<br>
-            <input type="email" name="email" required>
-        </label><br><br>
-        <label>Password<br>
-            <input type="password" name="password" required>
-        </label><br><br>
-        <button type="submit">Log In</button>
-    </form>
+        <?php if ($error): ?>
+            <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
 
-    <p>Don't have an account? <a href="register.php">Register</a></p>
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" placeholder="you@ufl.edu" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 mt-1">Log in</button>
+        </form>
+
+        <p class="text-center text-muted mt-2" style="font-size:13px;">
+            Don't have an account? <a href="register.php">Register</a>
+        </p>
+
+    </div>
+</div>
 </body>
 </html>
