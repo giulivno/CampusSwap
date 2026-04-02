@@ -3,10 +3,12 @@ require_once '../src/auth.php';
 require_login();
 
 $db = get_db();
+$user_id = $_SESSION['user_id'];
+$success = get_flash_message('success');
+$error = get_flash_message('error');
 
 if (!isset($_GET['id'])) {
-    header('Location: index.php');
-    exit();
+    redirect_to('/CampusSwap/public/index.php');
 }
 
 $listing_id = (int)$_GET['id'];
@@ -17,9 +19,9 @@ $stmt = $db->prepare('
     FROM listings l
     JOIN categories c ON l.category_id = c.id
     JOIN users u ON l.user_id = u.id
-    WHERE l.id = ? AND l.is_active = 1
+    WHERE l.id = ? AND (l.is_active = 1 OR l.user_id = ?)
 ');
-$stmt->bind_param('i', $listing_id);
+$stmt->bind_param('ii', $listing_id, $user_id);
 $stmt->execute();
 $listing = $stmt->get_result()->fetch_assoc();
 
@@ -27,6 +29,9 @@ if (!$listing) {
     echo "Listing not found.";
     exit();
 }
+
+$is_owner = (int)$listing['user_id'] === $user_id;
+$is_saved = !$is_owner && is_listing_saved($db, $user_id, $listing_id);
 
 // Get images
 $stmt = $db->prepare('SELECT * FROM listing_images WHERE listing_id = ?');
@@ -54,6 +59,16 @@ $condition_labels = [
         .listing-info h1 { font-size: 22px; margin-bottom: 8px; }
         .listing-price { font-size: 20px; font-weight: 700; color: var(--orange); margin-bottom: 12px; }
         .meta { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; }
+        .status-pill { display: inline-block; margin-bottom: 12px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .status-pill.archived { background: #FCEBEB; color: #791F1F; }
+        .action-row { display: flex; gap: 12px; margin-top: 24px; }
+        .action-row form,
+        .action-row a,
+        .action-row button { flex: 1; }
+        @media (max-width: 760px) {
+            .listing-page { grid-template-columns: 1fr; }
+            .action-row { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
@@ -69,6 +84,14 @@ $condition_labels = [
 </nav>
 
 <div class="container page">
+    <?php if ($success): ?>
+        <div class="alert alert-success mb-2"><?= htmlspecialchars($success) ?></div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+        <div class="alert alert-error mb-2"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+
     <div class="listing-page">
 
         <!-- Images -->
@@ -81,6 +104,9 @@ $condition_labels = [
         <!-- Info -->
         <div class="listing-info">
             <h1><?= htmlspecialchars($listing['title']) ?></h1>
+            <?php if ((int)$listing['is_active'] !== 1): ?>
+                <div class="status-pill archived">Archived Listing</div>
+            <?php endif; ?>
             <div class="listing-price">$<?= number_format($listing['price'], 2) ?></div>
 
             <div class="meta">
@@ -98,9 +124,19 @@ $condition_labels = [
                 👤 Seller: <?= htmlspecialchars($listing['seller_name']) ?>
             </div>
 
-            <button class="btn btn-primary mt-3 w-100">
-                Message Seller
-            </button>
+            <div class="action-row">
+                <?php if ($is_owner): ?>
+                    <a href="my_listings.php" class="btn btn-primary" style="text-align:center;">Manage Listing</a>
+                <?php else: ?>
+                    <form method="POST" action="toggle_save_listing.php">
+                        <input type="hidden" name="listing_id" value="<?= $listing['id'] ?>">
+                        <input type="hidden" name="action" value="<?= $is_saved ? 'unsave' : 'save' ?>">
+                        <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+                        <button type="submit" class="btn btn-secondary w-100"><?= $is_saved ? 'Unsave Listing' : 'Save Listing' ?></button>
+                    </form>
+                    <a href="messages.php" class="btn btn-secondary" style="text-align:center;">Messages</a>
+                <?php endif; ?>
+            </div>
         </div>
 
     </div>

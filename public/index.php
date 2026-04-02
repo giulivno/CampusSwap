@@ -3,6 +3,9 @@ require_once '../src/auth.php';
 require_login();
 
 $db = get_db();
+$user_id = $_SESSION['user_id'];
+$success = get_flash_message('success');
+$error = get_flash_message('error');
 
 $category_id = isset($_GET['category']) ? (int)$_GET['category'] : null;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -39,6 +42,18 @@ $stmt = $db->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $listings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+$saved_lookup = [];
+$stmt = $db->prepare('SELECT listing_id FROM saved_listings WHERE user_id = ?');
+$stmt->bind_param('i', $user_id);
+$stmt->execute();
+$saved_rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+foreach ($saved_rows as $saved_row) {
+    $saved_lookup[(int)$saved_row['listing_id']] = true;
+}
 
 // Category slug map for badges
 $category_slugs = [
@@ -79,6 +94,15 @@ $condition_labels = [
         .feed-title { font-size: 16px; font-weight: 600; }
         .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
         .empty-state p { margin-top: 8px; font-size: 14px; }
+        .listing-card-shell { background: var(--white); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+        .listing-card-link { display: block; color: inherit; }
+        .listing-card-link:hover { text-decoration: none; }
+        .listing-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-top: 0.5px solid var(--border); }
+        .listing-card-seller { font-size: 12px; color: var(--text-muted); }
+        @media (max-width: 760px) {
+            .page-layout { flex-direction: column; }
+            .sidebar { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -94,6 +118,14 @@ $condition_labels = [
 </nav>
 
 <div class="container page">
+    <?php if ($success): ?>
+        <div class="alert alert-success mb-2"><?= htmlspecialchars($success) ?></div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+        <div class="alert alert-error mb-2"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+
     <div class="page-layout">
 
         <!-- Sidebar -->
@@ -153,9 +185,11 @@ $condition_labels = [
                         <?php
                             $slug = $category_slugs[$listing['category_name']] ?? 'textbooks';
                             $cond = $condition_labels[$listing['condition']] ?? $listing['condition'];
+                            $is_owner = (int)$listing['user_id'] === $user_id;
                         ?>
-                        <a href="listing.php?id=<?= $listing['id'] ?>" style="text-decoration:none;">
-                            <div class="listing-card">
+                        <div class="listing-card-shell">
+                            <a href="listing.php?id=<?= $listing['id'] ?>" class="listing-card-link">
+                                <div class="listing-card">
                                 <img class="listing-card-img"
                                      src="/CampusSwap/uploads/<?= htmlspecialchars($listing['id']) ?>/primary.jpg"
                                      onerror="this.style.background='#f0f0f0';this.src=''"
@@ -168,8 +202,15 @@ $condition_labels = [
                                         <span class="badge badge-<?= $listing['condition'] ?>" style="margin-left:4px;"><?= $cond ?></span>
                                     </div>
                                 </div>
+                                </div>
+                            </a>
+                            <div class="listing-card-footer">
+                                <span class="listing-card-seller"><?= htmlspecialchars($listing['seller_name']) ?></span>
+                                <?php if ($is_owner): ?>
+                                    <a href="my_listings.php" class="btn btn-ghost btn-sm">Manage</a>
+                                <?php endif; ?>
                             </div>
-                        </a>
+                        </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>

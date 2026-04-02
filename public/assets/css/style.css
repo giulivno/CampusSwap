@@ -79,6 +79,7 @@ a:hover { text-decoration: underline; }
 .badge-electronics { background: #EEEDFE; color: #3C3489; }
 .badge-tutoring    { background: #FAECE7; color: #712B13; }
 .badge-new         { background: #EAF3DE; color: #27500A; }
+.badge-like_new    { background: #E6F1FB; color: #0C447C; }
 .badge-good        { background: #EAF3DE; color: #27500A; }
 .badge-fair        { background: #FAEEDA; color: #633806; }
 .badge-poor        { background: #FCEBEB; color: #791F1F; }

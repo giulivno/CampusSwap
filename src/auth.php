@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 session_start();
 
 function register_user($name, $email, $password) {
@@ -65,8 +66,7 @@ function login_user($email, $password) {
 
 function logout_user() {
     session_destroy();
-    header('Location: /CampusSwap/public/login.php');
-    exit();
+    redirect_to('/CampusSwap/public/login.php');
 }
 
 function is_logged_in() {
@@ -75,8 +75,7 @@ function is_logged_in() {
 
 function require_login() {
     if (!is_logged_in()) {
-        header('Location: /CampusSwap/public/login.php');
-        exit();
+        redirect_to('/CampusSwap/public/login.php');
     }
 }
 ?>
