@@ -34,10 +34,11 @@ $is_owner = (int)$listing['user_id'] === $user_id;
 $is_saved = !$is_owner && is_listing_saved($db, $user_id, $listing_id);
 
 // Get images
-$stmt = $db->prepare('SELECT * FROM listing_images WHERE listing_id = ?');
+$stmt = $db->prepare('SELECT * FROM listing_images WHERE listing_id = ? ORDER BY is_primary DESC, id ASC');
 $stmt->bind_param('i', $listing_id);
 $stmt->execute();
 $images = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 $condition_labels = [
     'new' => 'New',
@@ -51,11 +52,25 @@ $condition_labels = [
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($listing['title']) ?> — CampusSwap</title>
     <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
     <style>
         .listing-page { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
-        .image-gallery img { width: 100%; border-radius: var(--radius-lg); margin-bottom: 10px; }
+        .image-gallery { min-width: 0; }
+        .gallery-frame { position: relative; overflow: hidden; border-radius: var(--radius-lg); background: #f0f0f0; border: 0.5px solid var(--border); }
+        .gallery-track { display: flex; transition: transform 0.25s ease; touch-action: pan-y; }
+        .gallery-slide { min-width: 100%; }
+        .gallery-slide img { width: 100%; height: 430px; object-fit: contain; display: block; background: #f0f0f0; }
+        .gallery-button { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border: none; border-radius: 50%; background: rgba(255,255,255,0.92); color: var(--blue); font-size: 24px; line-height: 1; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.14); }
+        .gallery-button:hover { opacity: 0.9; }
+        .gallery-button.prev { left: 12px; }
+        .gallery-button.next { right: 12px; }
+        .gallery-count { position: absolute; right: 12px; bottom: 12px; background: rgba(26,26,26,0.75); color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+        .gallery-dots { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
+        .gallery-dot { width: 8px; height: 8px; border-radius: 50%; border: none; background: var(--border); cursor: pointer; }
+        .gallery-dot.active { background: var(--orange); }
+        .empty-gallery { display: flex; align-items: center; justify-content: center; min-height: 320px; color: var(--text-muted); }
         .listing-info h1 { font-size: 22px; margin-bottom: 8px; }
         .listing-price { font-size: 20px; font-weight: 700; color: var(--orange); margin-bottom: 12px; }
         .meta { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; }
@@ -67,6 +82,7 @@ $condition_labels = [
         .action-row button { flex: 1; }
         @media (max-width: 760px) {
             .listing-page { grid-template-columns: 1fr; }
+            .gallery-slide img { height: 320px; }
             .action-row { flex-direction: column; }
         }
     </style>
@@ -95,10 +111,34 @@ $condition_labels = [
     <div class="listing-page">
 
         <!-- Images -->
-        <div class="image-gallery">
-            <?php foreach ($images as $img): ?>
-                <img src="/CampusSwap/uploads/<?= htmlspecialchars($img['image_path']) ?>">
-            <?php endforeach; ?>
+        <div class="image-gallery" data-gallery>
+            <?php if (!empty($images)): ?>
+                <div class="gallery-frame">
+                    <div class="gallery-track" data-gallery-track>
+                        <?php foreach ($images as $i => $img): ?>
+                            <div class="gallery-slide">
+                                <img src="/CampusSwap/uploads/<?= htmlspecialchars($img['image_path']) ?>" alt="<?= htmlspecialchars($listing['title']) ?> photo <?= $i + 1 ?>">
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <?php if (count($images) > 1): ?>
+                        <button type="button" class="gallery-button prev" data-gallery-prev aria-label="Previous photo">‹</button>
+                        <button type="button" class="gallery-button next" data-gallery-next aria-label="Next photo">›</button>
+                        <div class="gallery-count"><span data-gallery-current>1</span> / <?= count($images) ?></div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if (count($images) > 1): ?>
+                    <div class="gallery-dots" aria-label="Listing photos">
+                        <?php foreach ($images as $i => $img): ?>
+                            <button type="button" class="gallery-dot <?= $i === 0 ? 'active' : '' ?>" data-gallery-dot="<?= $i ?>" aria-label="Show photo <?= $i + 1 ?>"></button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            <?php else: ?>
+                <div class="gallery-frame empty-gallery">No photos available</div>
+            <?php endif; ?>
         </div>
 
         <!-- Info -->
@@ -141,6 +181,62 @@ $condition_labels = [
 
     </div>
 </div>
+
+<script>
+const gallery = document.querySelector('[data-gallery]');
+
+if (gallery) {
+    const track = gallery.querySelector('[data-gallery-track]');
+    const slides = gallery.querySelectorAll('.gallery-slide');
+    const prevButton = gallery.querySelector('[data-gallery-prev]');
+    const nextButton = gallery.querySelector('[data-gallery-next]');
+    const currentLabel = gallery.querySelector('[data-gallery-current]');
+    const dots = gallery.querySelectorAll('[data-gallery-dot]');
+    let currentIndex = 0;
+    let touchStartX = 0;
+
+    function showSlide(index) {
+        if (!track || slides.length === 0) return;
+
+        currentIndex = (index + slides.length) % slides.length;
+        track.style.transform = `translateX(-${currentIndex * 100}%)`;
+
+        if (currentLabel) {
+            currentLabel.textContent = currentIndex + 1;
+        }
+
+        dots.forEach((dot, dotIndex) => {
+            dot.classList.toggle('active', dotIndex === currentIndex);
+        });
+    }
+
+    if (prevButton) {
+        prevButton.addEventListener('click', () => showSlide(currentIndex - 1));
+    }
+
+    if (nextButton) {
+        nextButton.addEventListener('click', () => showSlide(currentIndex + 1));
+    }
+
+    dots.forEach(dot => {
+        dot.addEventListener('click', () => showSlide(Number(dot.dataset.galleryDot)));
+    });
+
+    if (track) {
+        track.addEventListener('touchstart', event => {
+            touchStartX = event.touches[0].clientX;
+        }, { passive: true });
+
+        track.addEventListener('touchend', event => {
+            const touchEndX = event.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+
+            if (Math.abs(swipeDistance) < 45) return;
+            showSlide(swipeDistance < 0 ? currentIndex + 1 : currentIndex - 1);
+        });
+    }
+}
+</script>
 
 </body>
 </html>

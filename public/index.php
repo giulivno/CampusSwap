@@ -9,15 +9,33 @@ $error = get_flash_message('error');
 
 $category_id = isset($_GET['category']) ? (int)$_GET['category'] : null;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$min_price = isset($_GET['min_price']) && $_GET['min_price'] !== '' ? max(0, (float)$_GET['min_price']) : '';
+$max_price = isset($_GET['max_price']) && $_GET['max_price'] !== '' ? max(0, (float)$_GET['max_price']) : '';
+$condition_filter = isset($_GET['condition']) ? trim($_GET['condition']) : '';
+
+$condition_labels = [
+    'new'      => 'New',
+    'like_new' => 'Like new',
+    'good'     => 'Good',
+    'fair'     => 'Fair',
+    'poor'     => 'Poor',
+];
+
+if ($condition_filter && !array_key_exists($condition_filter, $condition_labels)) {
+    $condition_filter = '';
+}
 
 // Fetch categories
 $categories = $db->query('SELECT * FROM categories')->fetch_all(MYSQLI_ASSOC);
 
 // Build listings query
-$sql = 'SELECT l.*, c.name AS category_name, u.name AS seller_name
+$sql = 'SELECT l.*, c.name AS category_name, u.name AS seller_name, li.image_path AS primary_image_path
         FROM listings l
         JOIN categories c ON l.category_id = c.id
         JOIN users u ON l.user_id = u.id
+        LEFT JOIN listing_images li
+            ON li.listing_id = l.id
+           AND li.is_primary = 1
         WHERE l.is_active = 1 AND l.campus_id = ?';
 
 $params = [$_SESSION['campus_id']];
@@ -36,6 +54,24 @@ if ($search) {
     $types .= 'ss';
 }
 
+if ($min_price !== '') {
+    $sql .= ' AND l.price >= ?';
+    $params[] = $min_price;
+    $types .= 'd';
+}
+
+if ($max_price !== '') {
+    $sql .= ' AND l.price <= ?';
+    $params[] = $max_price;
+    $types .= 'd';
+}
+
+if ($condition_filter) {
+    $sql .= ' AND l.`condition` = ?';
+    $params[] = $condition_filter;
+    $types .= 's';
+}
+
 $sql .= ' ORDER BY l.created_at DESC';
 
 $stmt = $db->prepare($sql);
@@ -43,17 +79,6 @@ $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $listings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
-
-$saved_lookup = [];
-$stmt = $db->prepare('SELECT listing_id FROM saved_listings WHERE user_id = ?');
-$stmt->bind_param('i', $user_id);
-$stmt->execute();
-$saved_rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-foreach ($saved_rows as $saved_row) {
-    $saved_lookup[(int)$saved_row['listing_id']] = true;
-}
 
 // Category slug map for badges
 $category_slugs = [
@@ -64,13 +89,11 @@ $category_slugs = [
     'Tutoring'     => 'tutoring',
 ];
 
-$condition_labels = [
-    'new'      => 'New',
-    'like_new' => 'Like new',
-    'good'     => 'Good',
-    'fair'     => 'Fair',
-    'poor'     => 'Poor',
-];
+$current_filters = [];
+if ($search !== '') $current_filters['search'] = $search;
+if ($min_price !== '') $current_filters['min_price'] = $min_price;
+if ($max_price !== '') $current_filters['max_price'] = $max_price;
+if ($condition_filter !== '') $current_filters['condition'] = $condition_filter;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -88,8 +111,8 @@ $condition_labels = [
         .sidebar-item:hover { background: var(--surface); text-decoration: none; }
         .sidebar-item.active { background: var(--blue-light); color: var(--blue); font-weight: 500; }
         .main { flex: 1; min-width: 0; }
-        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-        .search-bar input { flex: 1; }
+        .search-panel { background: var(--white); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 20px; }
+        .search-bar { display: grid; grid-template-columns: 1fr repeat(3, minmax(120px, 150px)) auto auto; gap: 10px; align-items: end; }
         .feed-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
         .feed-title { font-size: 16px; font-weight: 600; }
         .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
@@ -102,6 +125,7 @@ $condition_labels = [
         @media (max-width: 760px) {
             .page-layout { flex-direction: column; }
             .sidebar { width: 100%; }
+            .search-bar { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -132,10 +156,14 @@ $condition_labels = [
         <div class="sidebar">
             <div class="sidebar-card">
                 <div class="sidebar-title">Categories</div>
-                <a href="index.php" class="sidebar-item <?= !$category_id ? 'active' : '' ?>">All listings</a>
+                <?php $all_params = $current_filters; ?>
+                <a href="index.php<?= $all_params ? '?' . http_build_query($all_params) : '' ?>" class="sidebar-item <?= !$category_id ? 'active' : '' ?>">All listings</a>
                 <?php foreach ($categories as $cat): ?>
-                    <a href="index.php?category=<?= $cat['id'] ?><?= $search ? '&search='.urlencode($search) : '' ?>"
-                       class="sidebar-item <?= $category_id === (int)$cat['id'] ? 'active' : '' ?>">
+                    <?php
+                        $category_params = array_merge($current_filters, ['category' => $cat['id']]);
+                        $category_url = 'index.php?' . http_build_query($category_params);
+                    ?>
+                    <a href="<?= htmlspecialchars($category_url) ?>" class="sidebar-item <?= $category_id === (int)$cat['id'] ? 'active' : '' ?>">
                         <?= htmlspecialchars($cat['name']) ?>
                     </a>
                 <?php endforeach; ?>
@@ -145,19 +173,50 @@ $condition_labels = [
         <!-- Main feed -->
         <div class="main">
 
-            <!-- Search bar -->
-            <form method="GET" class="search-bar">
-                <?php if ($category_id): ?>
-                    <input type="hidden" name="category" value="<?= $category_id ?>">
-                <?php endif; ?>
-                <input type="text" name="search" class="form-control"
-                       placeholder="Search textbooks, furniture..."
-                       value="<?= htmlspecialchars($search) ?>">
-                <button type="submit" class="btn btn-primary">Search</button>
-                <?php if ($search): ?>
-                    <a href="index.php<?= $category_id ? '?category='.$category_id : '' ?>" class="btn btn-ghost">Clear</a>
-                <?php endif; ?>
-            </form>
+            <!-- Search and filters -->
+            <div class="search-panel">
+                <form method="GET" class="search-bar">
+                    <?php if ($category_id): ?>
+                        <input type="hidden" name="category" value="<?= $category_id ?>">
+                    <?php endif; ?>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Search</label>
+                        <input type="text" name="search" class="form-control"
+                               placeholder="Search textbooks, furniture..."
+                               value="<?= htmlspecialchars($search) ?>">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Min price</label>
+                        <input type="number" name="min_price" class="form-control" min="0" step="0.01"
+                               value="<?= htmlspecialchars((string)$min_price) ?>" placeholder="0">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Max price</label>
+                        <input type="number" name="max_price" class="form-control" min="0" step="0.01"
+                               value="<?= htmlspecialchars((string)$max_price) ?>" placeholder="Any">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Condition</label>
+                        <select name="condition" class="form-control">
+                            <option value="">Any</option>
+                            <?php foreach ($condition_labels as $value => $label): ?>
+                                <option value="<?= htmlspecialchars($value) ?>" <?= $condition_filter === $value ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($label) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <?php if ($search || $min_price !== '' || $max_price !== '' || $condition_filter): ?>
+                        <a href="index.php<?= $category_id ? '?category='.$category_id : '' ?>" class="btn btn-ghost">Clear</a>
+                    <?php endif; ?>
+                </form>
+            </div>
 
             <!-- Feed header -->
             <div class="feed-header">
@@ -186,14 +245,16 @@ $condition_labels = [
                             $slug = $category_slugs[$listing['category_name']] ?? 'textbooks';
                             $cond = $condition_labels[$listing['condition']] ?? $listing['condition'];
                             $is_owner = (int)$listing['user_id'] === $user_id;
+                            $image_path = get_listing_image_path($listing);
                         ?>
                         <div class="listing-card-shell">
                             <a href="listing.php?id=<?= $listing['id'] ?>" class="listing-card-link">
                                 <div class="listing-card">
-                                <img class="listing-card-img"
-                                     src="/CampusSwap/uploads/<?= htmlspecialchars($listing['id']) ?>/primary.jpg"
-                                     onerror="this.style.background='#f0f0f0';this.src=''"
-                                     alt="<?= htmlspecialchars($listing['title']) ?>">
+                                <?php if ($image_path): ?>
+                                    <img class="listing-card-img" src="<?= htmlspecialchars($image_path) ?>" alt="<?= htmlspecialchars($listing['title']) ?>">
+                                <?php else: ?>
+                                    <img class="listing-card-img" src="" onerror="this.style.background='#f0f0f0';this.removeAttribute('src');" alt="<?= htmlspecialchars($listing['title']) ?>">
+                                <?php endif; ?>
                                 <div class="listing-card-body">
                                     <div class="listing-card-title"><?= htmlspecialchars($listing['title']) ?></div>
                                     <div class="listing-card-price">$<?= number_format($listing['price'], 2) ?></div>

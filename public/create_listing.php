@@ -8,6 +8,37 @@ $success = '';
 
 $categories = $db->query('SELECT * FROM categories')->fetch_all(MYSQLI_ASSOC);
 
+function detect_uploaded_image_mime($tmp) {
+    if (!$tmp || !is_uploaded_file($tmp)) {
+        return '';
+    }
+
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+            $mime = finfo_file($finfo, $tmp);
+            finfo_close($finfo);
+
+            if ($mime) {
+                return $mime;
+            }
+        }
+    }
+
+    $image_info = getimagesize($tmp);
+    return $image_info['mime'] ?? '';
+}
+
+function image_extension_for_mime($mime) {
+    $extensions = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+
+    return $extensions[$mime] ?? '';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title       = trim($_POST['title']);
     $category_id = (int)$_POST['category_id'];
@@ -16,13 +47,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $availability= $_POST['availability'];
     $location    = trim($_POST['location']);
     $description = trim($_POST['description']);
+    $cover_index = (int)($_POST['cover_index'] ?? 0);
+
+    $allowed_conditions = ['new', 'like_new', 'good', 'fair', 'poor'];
+    $allowed_availability = ['immediate', 'future'];
+    $valid_images = [];
+    $upload_errors = 0;
+
+    if (!empty($_FILES['images']['name'][0])) {
+        foreach ($_FILES['images']['tmp_name'] as $i => $tmp) {
+            if ($_FILES['images']['error'][$i] !== UPLOAD_ERR_OK) {
+                $upload_errors++;
+                continue;
+            }
+
+            $mime = detect_uploaded_image_mime($tmp);
+            $ext = image_extension_for_mime($mime);
+            if (!$ext) continue;
+
+            $valid_images[] = [
+                'tmp' => $tmp,
+                'ext' => $ext,
+                'original_index' => $i
+            ];
+        }
+    }
 
     // Basic validation
     if (!$title || !$category_id || !$price || !$condition || !$availability) {
         $error = 'Please fill out all required fields.';
-    } elseif (empty($_FILES['images']['name'][0])) {
-        $error = 'Please upload at least one photo.';
+    } elseif (!in_array($condition, $allowed_conditions, true) || !in_array($availability, $allowed_availability, true)) {
+        $error = 'Please choose valid listing options.';
+    } elseif (empty($valid_images)) {
+        $error = $upload_errors > 0
+            ? 'One or more photos could not be uploaded. Try smaller JPEG, PNG, or WebP files.'
+            : 'Please upload at least one valid JPEG, PNG, or WebP photo.';
     } else {
+        $uploads_root = __DIR__ . '/../uploads/';
+
+        if (!is_dir($uploads_root)) {
+            mkdir($uploads_root, 0777, true);
+        }
+
+        if (!is_dir($uploads_root) || !is_writable($uploads_root)) {
+            $error = 'The uploads folder is not writable. Please check the uploads directory permissions.';
+        }
+    }
+
+    if (!$error && !empty($valid_images)) {
+        $valid_cover_indexes = array_column($valid_images, 'original_index');
+        if (!in_array($cover_index, $valid_cover_indexes, true)) {
+            $cover_index = $valid_images[0]['original_index'];
+        }
+
         // Insert listing
         $stmt = $db->prepare('INSERT INTO listings (user_id, campus_id, category_id, title, description, price, `condition`, availability, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->bind_param('iiissdsss', $_SESSION['user_id'], $_SESSION['campus_id'], $category_id, $title, $description, $price, $condition, $availability, $location);
@@ -31,32 +108,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         // Handle image uploads
-        $upload_dir = __DIR__ . '/../uploads/' . $listing_id . '/';
-        mkdir($upload_dir, 0755, true);
+        $upload_dir = $uploads_root . $listing_id . '/';
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
 
-        $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        $first = true;
+        $inserted_image_ids = [];
+        $primary_image_id = 0;
 
-        foreach ($_FILES['images']['tmp_name'] as $i => $tmp) {
-            if ($_FILES['images']['error'][$i] !== UPLOAD_ERR_OK) continue;
-            if (!in_array($_FILES['images']['type'][$i], $allowed)) continue;
+        if (is_dir($upload_dir) && is_writable($upload_dir)) {
+            foreach ($valid_images as $image) {
+                $filename = uniqid('listing_', true) . '.' . $image['ext'];
+                if (!move_uploaded_file($image['tmp'], $upload_dir . $filename)) continue;
 
-            $ext = pathinfo($_FILES['images']['name'][$i], PATHINFO_EXTENSION);
-            $filename = $first ? 'primary.' . $ext : uniqid() . '.' . $ext;
-            move_uploaded_file($tmp, $upload_dir . $filename);
+                $is_primary = (int)$image['original_index'] === $cover_index ? 1 : 0;
+                $stmt = $db->prepare('INSERT INTO listing_images (listing_id, image_path, is_primary) VALUES (?, ?, ?)');
+                $path = $listing_id . '/' . $filename;
+                $stmt->bind_param('isi', $listing_id, $path, $is_primary);
+                $stmt->execute();
+                $image_id = $stmt->insert_id;
+                $stmt->close();
 
-            $stmt = $db->prepare('INSERT INTO listing_images (listing_id, image_path, is_primary) VALUES (?, ?, ?)');
-            $path = $listing_id . '/' . $filename;
-            $is_primary = $first ? 1 : 0;
-            $stmt->bind_param('isi', $listing_id, $path, $is_primary);
+                $inserted_image_ids[] = $image_id;
+                if ($is_primary) {
+                    $primary_image_id = $image_id;
+                }
+            }
+        }
+
+        if (empty($inserted_image_ids)) {
+            $stmt = $db->prepare('DELETE FROM listings WHERE id = ? AND user_id = ?');
+            $stmt->bind_param('ii', $listing_id, $_SESSION['user_id']);
             $stmt->execute();
             $stmt->close();
 
-            $first = false;
-        }
+            $error = is_dir($upload_dir) && is_writable($upload_dir)
+                ? 'The listing was not posted because the photos could not be uploaded.'
+                : 'The listing was not posted because the upload folder could not be written to.';
+        } else {
+            if (!$primary_image_id) {
+                $stmt = $db->prepare('UPDATE listing_images SET is_primary = 1 WHERE id = ?');
+                $stmt->bind_param('i', $inserted_image_ids[0]);
+                $stmt->execute();
+                $stmt->close();
+            }
 
-        header('Location: /CampusSwap/public/index.php');
-        exit();
+            header('Location: /CampusSwap/public/index.php');
+            exit();
+        }
     }
 }
 ?>
@@ -74,6 +173,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .image-upload-box { border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 32px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
         .image-upload-box:hover { border-color: var(--blue); }
         .image-upload-box p { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+        .photo-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 12px; }
+        .photo-preview-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; background: var(--white); transition: border-color 0.15s, box-shadow 0.15s; }
+        .photo-preview-card.selected { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,160,0.12); }
+        .photo-preview-card img { width: 100%; height: 92px; object-fit: cover; border-radius: var(--radius-sm); display: block; margin-bottom: 6px; }
+        .photo-preview-cover { display: flex; align-items: center; margin-bottom: 8px; cursor: pointer; }
+        .photo-preview-cover input { margin-right: 5px; }
+        .cover-label { font-size: 12px; color: var(--text-muted); }
+        .photo-preview-card.selected .cover-label { color: var(--blue); font-weight: 600; }
+        .remove-photo-btn { width: 100%; text-align: center; }
+        @media (max-width: 700px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -160,10 +271,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color:var(--text-muted);margin:0 auto">
                             <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
                         </svg>
-                        <p>Click to upload photos (JPEG, PNG, WebP)</p>
-                        <input type="file" id="images" name="images[]" accept="image/*" multiple style="display:none">
+                        <p>Click to upload photos (JPEG, PNG, WebP). You can choose one as the cover.</p>
+                        <input type="file" id="images" name="images[]" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
                     </label>
-                    <div id="preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>
+                    <div id="preview" class="photo-preview-grid"></div>
                 </div>
             </div>
 
@@ -175,19 +286,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-document.getElementById('images').addEventListener('change', function() {
+const imageInput = document.getElementById('images');
+const preview = document.getElementById('preview');
+let selectedFiles = [];
+let coverIndex = 0;
+let previewUrls = [];
+
+function syncImageInput() {
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach(file => dataTransfer.items.add(file));
+    imageInput.files = dataTransfer.files;
+}
+
+function renderPhotoPreviews() {
+    previewUrls.forEach(url => URL.revokeObjectURL(url));
+    previewUrls = [];
+
     const preview = document.getElementById('preview');
     preview.innerHTML = '';
-    [...this.files].forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.style = 'width:80px;height:80px;object-fit:cover;border-radius:8px;border:0.5px solid var(--border)';
-            preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
+
+    if (selectedFiles.length === 0) {
+        coverIndex = 0;
+        return;
+    }
+
+    if (coverIndex >= selectedFiles.length) {
+        coverIndex = 0;
+    }
+
+    selectedFiles.forEach((file, index) => {
+        const card = document.createElement('div');
+        card.className = 'photo-preview-card';
+        if (index === coverIndex) {
+            card.classList.add('selected');
+        }
+
+        const img = document.createElement('img');
+        const objectUrl = URL.createObjectURL(file);
+        previewUrls.push(objectUrl);
+        img.src = objectUrl;
+        img.alt = file.name;
+
+        const coverOption = document.createElement('label');
+        coverOption.className = 'photo-preview-cover';
+        coverOption.setAttribute('for', `cover_index_${index}`);
+
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'cover_index';
+        radio.id = `cover_index_${index}`;
+        radio.value = index;
+        radio.checked = index === coverIndex;
+
+        const label = document.createElement('span');
+        label.className = 'cover-label';
+        label.textContent = index === coverIndex ? 'Cover photo' : 'Set as cover';
+
+        radio.addEventListener('change', () => {
+            coverIndex = index;
+            renderPhotoPreviews();
+        });
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-ghost btn-sm remove-photo-btn';
+        removeButton.textContent = 'Remove';
+        removeButton.addEventListener('click', () => {
+            selectedFiles.splice(index, 1);
+
+            if (coverIndex === index) {
+                coverIndex = 0;
+            } else if (index < coverIndex) {
+                coverIndex--;
+            }
+
+            syncImageInput();
+            renderPhotoPreviews();
+        });
+
+        coverOption.appendChild(radio);
+        coverOption.appendChild(label);
+        card.appendChild(img);
+        card.appendChild(coverOption);
+        card.appendChild(removeButton);
+        preview.appendChild(card);
     });
+}
+
+imageInput.addEventListener('change', function() {
+    selectedFiles = selectedFiles.concat([...this.files]);
+    syncImageInput();
+    renderPhotoPreviews();
 });
 </script>
 
