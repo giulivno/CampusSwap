@@ -174,7 +174,13 @@ $condition_labels = [
                         <input type="hidden" name="redirect" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
                         <button type="submit" class="btn btn-secondary w-100"><?= $is_saved ? 'Unsave Listing' : 'Save Listing' ?></button>
                     </form>
-                    <a href="messages.php" class="btn btn-secondary" style="text-align:center;">Messages</a>
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('msg-form').style.display='block';this.style.display='none';">Message Seller</button>
+                    <form id="msg-form" method="POST" action="send_message.php" style="display:none; margin-top:12px;">
+                        <input type="hidden" name="listing_id" value="<?= $listing['id'] ?>">
+                        <input type="hidden" name="other_user_id" value="<?= $listing['user_id'] ?>">
+                        <textarea name="body" class="form-control" placeholder="Write a message to the seller..." rows="3" required style="margin-bottom:8px;"></textarea>
+                        <button type="submit" class="btn btn-primary w-100">Send Message</button>
+                    </form>
                 <?php endif; ?>
             </div>
         </div>
