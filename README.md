@@ -67,7 +67,24 @@ define('DB_NAME', 'campusswap');
 
 If your XAMPP MySQL has a password set, update `DB_PASS` accordingly.
 
-### 5. Run the app
+### 5. Environment Variables (Google Maps API)
+
+This project uses the Google Maps API, which requires a local environment variable for security.
+
+In the project root directory, create a file named:
+`.env `
+
+Add the following line inside the file:
+`GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here`
+
+The application automatically loads this key using `src/config.php`.
+
+⚠️ Important:
+- Do NOT commit the `.env` file to GitHub  
+- Each developer must create their own `.env` file locally  
+- If missing, Google Maps features will not work  
+
+### 6. Run the app
 
 Go to `http://localhost/CampusSwap/public/index.php` in your browser. You should be redirected to the login page.
 
