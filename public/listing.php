@@ -1,5 +1,6 @@
 <?php
 require_once '../src/auth.php';
+require_once '../config.php';
 require_login();
 
 $db = get_db();
@@ -271,7 +272,7 @@ function initMap() {
 </script>
 
 <script 
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFusa8QDcSf1mWwuWuGynna2Fhn2CRh28&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=<?= GOOGLE_MAPS_API_KEY ?>&callback=initMap"
     async
     defer
 ></script>

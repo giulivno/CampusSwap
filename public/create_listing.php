@@ -1,5 +1,6 @@
 <?php
 require_once '../src/auth.php';
+require_once '../config.php';
 require_login();
 
 $db = get_db();
@@ -195,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sell an item — CampusSwap</title>
     <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFusa8QDcSf1mWwuWuGynna2Fhn2CRh28&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?= GOOGLE_MAPS_API_KEY ?>&libraries=places"></script>
     <style>
         .sell-layout { max-width: 640px; margin: 0 auto; }
         .sell-layout h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; }

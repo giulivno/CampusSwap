@@ -3,7 +3,6 @@ vendor/
 *.bak
 uploads/*
 !uploads/.gitkeep
-config.php
 .env
 .DS_Store
 Thumbs.db
