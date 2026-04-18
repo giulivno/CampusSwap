@@ -195,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sell an item — CampusSwap</title>
     <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1ET-s06RnUrWFwrsCaY_XBQi2JN9sktU&libraries=places"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAFusa8QDcSf1mWwuWuGynna2Fhn2CRh28&libraries=places"></script>
     <style>
         .sell-layout { max-width: 640px; margin: 0 auto; }
         .sell-layout h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
