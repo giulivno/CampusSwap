@@ -46,6 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $condition   = $_POST['condition'];
     $availability= $_POST['availability'];
     $location    = trim($_POST['location']);
+    $latitude = isset($_POST['latitude']) ? (float)$_POST['latitude'] : null;
+    $longitude = isset($_POST['longitude']) ? (float)$longitude = (float)$_POST['longitude'] : null;
     $description = trim($_POST['description']);
     $cover_index = (int)($_POST['cover_index'] ?? 0);
 
@@ -101,8 +103,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Insert listing
-        $stmt = $db->prepare('INSERT INTO listings (user_id, campus_id, category_id, title, description, price, `condition`, availability, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->bind_param('iiissdsss', $_SESSION['user_id'], $_SESSION['campus_id'], $category_id, $title, $description, $price, $condition, $availability, $location);
+        $stmt = $db->prepare('
+        INSERT INTO listings (
+            user_id,
+            campus_id,
+            category_id,
+            title,
+            description,
+            price,
+            `condition`,
+            availability,
+            location,
+            latitude,
+            longitude
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ');
+        $stmt->bind_param(
+            'iiissdsssdd',
+            $_SESSION['user_id'],
+            $_SESSION['campus_id'],
+            $category_id,
+            $title,
+            $description,
+            $price,
+            $condition,
+            $availability,
+            $location,
+            $latitude,
+            $longitude
+        );
         $stmt->execute();
         $listing_id = $stmt->insert_id;
         $stmt->close();
@@ -166,6 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sell an item — CampusSwap</title>
     <link rel="stylesheet" href="/CampusSwap/public/assets/css/style.css">
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1ET-s06RnUrWFwrsCaY_XBQi2JN9sktU&libraries=places"></script>
     <style>
         .sell-layout { max-width: 640px; margin: 0 auto; }
         .sell-layout h1 { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
@@ -259,8 +289,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Location</label>
-                    <input type="text" name="location" class="form-control" placeholder="e.g. Turlington Hall, Reitz Union...">
+                    <label class="form-label">Location <span style="color:var(--orange)">*</span></label>
+
+                    <input 
+                        type="text" 
+                        id="location-input"
+                        name="location" 
+                        class="form-control"
+                        placeholder="Search UF or Santa Fe campus location..."
+                        required
+                    >
+
+                    <input type="hidden" name="latitude" id="latitude">
+                    <input type="hidden" name="longitude" id="longitude">
                 </div>
             </div>
 
@@ -378,6 +419,36 @@ imageInput.addEventListener('change', function() {
     syncImageInput();
     renderPhotoPreviews();
 });
+</script>
+
+<script>
+function initAutocomplete() {
+    const input = document.getElementById('location-input');
+
+    const autocomplete = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: "us" },
+        fields: ["geometry", "name"],
+    });
+
+    // Restrict roughly to Gainesville area
+    autocomplete.setBounds({
+        north: 29.70,
+        south: 29.60,
+        east: -82.30,
+        west: -82.40
+    });
+
+    autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+
+        if (!place.geometry) return;
+
+        document.getElementById('latitude').value = place.geometry.location.lat();
+        document.getElementById('longitude').value = place.geometry.location.lng();
+    });
+}
+
+window.addEventListener("load", initAutocomplete);
 </script>
 
 </body>

@@ -160,6 +160,10 @@ $condition_labels = [
                 📍 <?= htmlspecialchars($listing['location'] ?: 'No location specified') ?>
             </div>
 
+            <?php if (!empty($listing['latitude']) && !empty($listing['longitude'])): ?>
+                <div id="map" style="height: 300px; margin-top: 15px; border-radius: 12px; overflow: hidden;"></div>
+            <?php endif; ?>
+
             <div class="meta">
                 👤 Seller: <?= htmlspecialchars($listing['seller_name']) ?>
             </div>
@@ -243,6 +247,35 @@ if (gallery) {
     }
 }
 </script>
+<?php if (!empty($listing['latitude']) && !empty($listing['longitude'])): ?>
+<script>
+function initMap() {
+    const location = {
+        lat: <?= (float)$listing['latitude'] ?>,
+        lng: <?= (float)$listing['longitude'] ?>
+    };
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 15,
+        center: location,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+    });
+
+    new google.maps.Marker({
+        position: location,
+        map: map
+    });
+}
+</script>
+
+<script 
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1ET-s06RnUrWFwrsCaY_XBQi2JN9sktU&callback=initMap"
+    async
+    defer
+></script>
+<?php endif; ?>
 
 </body>
 </html>

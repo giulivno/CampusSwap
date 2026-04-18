@@ -31,6 +31,8 @@ CREATE TABLE listings (
     `condition` ENUM('new', 'like_new', 'good', 'fair', 'poor') NOT NULL,
     availability ENUM('immediate', 'future') NOT NULL,
     location VARCHAR(150),
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
