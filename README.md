@@ -71,7 +71,7 @@ If your XAMPP MySQL has a password set, update `DB_PASS` accordingly.
 
 This project uses the Google Maps API, which requires a local environment variable for security.
 
-STEP 1: Get API Key
+**STEP 1: Get API Key**
 Go to: [https://console.cloud.google.com/](https://console.cloud.google.com/)
 
 Enable:
@@ -80,7 +80,7 @@ Enable:
 
 Create an API key.
 
-STEP 2: Set Up Environment File
+**STEP 2: Set Up Environment File**
 In the project root directory, create a file named: `.env`
 
 Add the following line inside the file:
