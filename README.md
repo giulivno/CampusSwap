@@ -81,10 +81,9 @@ Enable:
 Create an API key.
 
 **STEP 2: Set Up Environment File**
-In the project root directory, create a file named: `.env`
-
-Add the following line inside the file:
-`GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here`
+1. Navigate to the example file in the root directory: `.env.example`
+2. Copy the contents of it (`GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here`)
+3. In the project root directory, create a file named: `.env` and paste the content from the example file
 
 The application automatically loads this key using src/config.php.
 
