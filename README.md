@@ -71,18 +71,27 @@ If your XAMPP MySQL has a password set, update `DB_PASS` accordingly.
 
 This project uses the Google Maps API, which requires a local environment variable for security.
 
-In the project root directory, create a file named:
-`.env `
+STEP 1: Get API Key
+Go to: [https://console.cloud.google.com/](https://console.cloud.google.com/)
+
+Enable:
+- Places API
+- Maps JavaScript API
+
+Create an API key.
+
+STEP 2: Set Up Environment File
+In the project root directory, create a file named: `.env`
 
 Add the following line inside the file:
 `GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here`
 
-The application automatically loads this key using `src/config.php`.
+The application automatically loads this key using src/config.php.
 
 ⚠️ Important:
-- Do NOT commit the `.env` file to GitHub  
-- Each developer must create their own `.env` file locally  
-- If missing, Google Maps features will not work  
+- Do NOT commit the `.env` file to GitHub
+- Each developer must create their own `.env` file locally
+- If missing, Google Maps features will not work
 
 ### 6. Run the app
 
