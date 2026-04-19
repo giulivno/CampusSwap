@@ -93,7 +93,27 @@ The application automatically loads this key using src/config.php.
 - Each developer must create their own `.env` file locally
 - If missing, Google Maps features will not work
 
-### 6. Run the app
+### 6. Email Notifications Setup
+
+This project uses **PHPMailer with Gmail SMTP** to send email notifications when a user receives a new message.
+
+---
+
+####  Local Setup
+
+1. Navigate to the example config file:
+public/email_config.example.php
+
+2. Copy and rename it:
+public/email_config.php
+
+3. Open `email_config.php` and fill in the credentials.
+
+Email notifications are triggered when a message is sent and are handled using PHPMailer with Gmail SMTP authentication.
+
+Each developer must create their own copy of this file, do not commit credentials to the repo.
+
+### 7. Run the app
 
 Go to `http://localhost/CampusSwap/public/index.php` in your browser. You should be redirected to the login page.
 
