@@ -8,3 +8,4 @@ uploads/*
 Thumbs.db
 .vscode/
 .idea/
+/public/email_config.php
