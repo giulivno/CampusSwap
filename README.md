@@ -106,7 +106,9 @@ public/email_config.example.php
 2. Copy and rename it:
 public/email_config.php
 
-3. Open `email_config.php` and fill in the credentials.
+3. Open `email_config.php` and fill in the credentials:
+- email: `campusswap.team@gmail.com`
+- password: `kbgqjcaqippbweaa`
 
 Email notifications are triggered when a message is sent and are handled using PHPMailer with Gmail SMTP authentication.
 
