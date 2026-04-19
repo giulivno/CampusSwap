@@ -1,5 +1,6 @@
 <?php
 require_once '../src/auth.php';
+require_once 'mailer.php';
 require_login();
 
 $db = get_db();
@@ -21,6 +22,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param('iiis', $listing_id, $current_user_id, $other_user_id, $body);
         $stmt->execute();
         $stmt->close();
+
+        $stmt = $db->prepare("SELECT email FROM users WHERE id = ?");
+        $stmt->bind_param("i", $other_user_id);
+        $stmt->execute();
+        $stmt->bind_result($receiver_email);
+        $stmt->fetch();
+        $stmt->close();
+
+        $stmt = $db->prepare("SELECT name FROM users WHERE id = ?");
+        $stmt->bind_param("i", $current_user_id);
+        $stmt->execute();
+        $stmt->bind_result($sender_name);
+        $stmt->fetch();
+        $stmt->close();
+
+        if (!empty($receiver_email)) {
+            $subject = "New message from " . ($sender_name ?: "CampusSwap User");
+
+            $email_body = "
+                <h3>New message from " . htmlspecialchars($sender_name ?: "CampusSwap User") . "</h3>
+                <p>" . nl2br(htmlspecialchars($body)) . "</p>
+                <p>Log into the app to view and respond.</p>
+            ";
+
+            send_email($receiver_email, $subject, $email_body);
+        }
 
         header("Location: /CampusSwap/public/messages.php?listing_id=$listing_id&user_id=$other_user_id");
         exit();
