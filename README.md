@@ -1,6 +1,6 @@
 # CampusSwap
 
-[https://cise.ufl.edu/~gdilorenzo/cis4930/group/public/login.php](https://cise.ufl.edu/~gdilorenzo/cis4930/group/public/login.php)
+[https://campusswap.42web.io/public/index.php](https://campusswap.42web.io/public/index.php)
 
 A student-only online marketplace for University of Florida and Santa Fe College students to buy, sell, and trade items locally on campus.
 
